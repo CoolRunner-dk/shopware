@@ -34,7 +34,7 @@ class CartSubscriber implements EventSubscriberInterface
     }
 
     public function onCartChanged($data) {
-        dd($this->convert($data));
+        // dd($this->convert($data));
     }
 
     private function convert($data)

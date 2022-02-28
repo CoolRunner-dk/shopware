@@ -37,6 +37,39 @@
     </card>
 
     <card>
+        <title>Warehouse / Print settings</title>
+        <input-field type="single-select">
+            <name>warehouse</name>
+            <label>Warehouse</label>
+            <options>
+                <option>
+                    <id>internal</id>
+                    <name>Inhouse warehouse</name>
+                </option>
+                <option>
+                    <id>external</id>
+                    <name>External warehouse</name>
+                </option>
+            </options>
+        </input-field>
+
+        <input-field type="single-select">
+            <name>printformat</name>
+            <label>Print format</label>
+            <options>
+                <option>
+                    <id>LabelPrint</id>
+                    <name>LabelPrint</name>
+                </option>
+                <option>
+                    <id>A4</id>
+                    <name>A4</name>
+                </option>
+            </options>
+        </input-field>
+    </card>
+
+    <card>
         <title>Sender</title>
         <input-field type="text">
             <name>sendershop</name>
@@ -68,11 +101,10 @@
             <label>City</label>
         </input-field>
 
-        <component name="sw-entity-single-select">
+        <input-field type="text">
             <name>sendercountry</name>
-            <entity>country</entity>
             <label>Country</label>
-        </component>
+        </input-field>
 
         <input-field type="text">
             <name>senderphone</name>
