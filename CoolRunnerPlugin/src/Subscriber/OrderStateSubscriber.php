@@ -5,9 +5,7 @@ namespace CoolRunnerPlugin\Subscriber;
 use CoolRunnerPlugin\Controller\CoolRunnerAPI;
 use CoolRunnerPlugin\Service\OrderService;
 use Psr\Log\LoggerInterface;
-use Shopware\Core\Checkout\Cart\LineItem\LineItem;
 use Shopware\Core\Checkout\Order\OrderEntity;
-use Shopware\Core\Content\Product\ProductEntity;
 use Shopware\Core\Framework\DataAbstractionLayer\EntityRepositoryInterface;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Criteria;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Filter\EqualsFilter;
@@ -50,14 +48,12 @@ class OrderStateSubscriber implements EventSubscriberInterface
 
     public function onDeliveryStateChange(StateMachineStateChangeEvent $event)
     {
+//        $this->logger->debug('CoolRunnerTest: ' . json_encode($event->getContext()));
+
         if($event->getStateEventName() == 'state_enter.order_delivery.state.shipped') {
             // Get order
             /** @var OrderEntity $order */
             $order = $this->orderService->readData($event->getContext());
-
-            foreach ($order->getLineItems() as $lineItem) {
-                $this->logger->debug('CoolRunnerTest: ' . json_encode($lineItem->getProduct()));
-            }
 
             // Get country
             $criteria = new Criteria();
@@ -65,10 +61,8 @@ class OrderStateSubscriber implements EventSubscriberInterface
 
             $country = $this->countryRepository->search($criteria, $event->getContext())->first();
 
-            $this->logger->debug('CoolRunnerTest: Custom fields' . json_encode($order->getCustomFields()));
-
             // Create shipment
-            // $this->logger->debug('CoolRunnerTest: ' . json_encode($this->apiClient->createShipment($order, $country)));
+            $this->logger->debug('CoolRunnerTest: ' . $this->apiClient->createShipment($order, $country));
         }
     }
 }

@@ -19,11 +19,12 @@ class OrderService
     public function readData(Context $context)
     {
         $criteria = new Criteria();
-        $criteria->addFilter(new EqualsFilter('id', 'eeca564079454a279b65b5084a94bf66'));
+        $criteria->addFilter(new EqualsFilter('id', 'af41d3a3019147fb8edeabfe99a729b5'));
         $criteria->addAssociation('lineItems');
         $criteria->addAssociation('addresses');
         $criteria->addAssociation('customFields');
         $criteria->addAssociation('lineItems.product.customFields');
+        $criteria->addAssociation('deliveries.shippingMethod.customFields');
 
         return $this->orderRepository->search($criteria, $context)->first();
     }

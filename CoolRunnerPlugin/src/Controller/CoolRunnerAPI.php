@@ -4,6 +4,7 @@ namespace CoolRunnerPlugin\Controller;
 
 use GuzzleHttp\Client;
 use GuzzleHttp\Psr7\Request;
+use Shopware\Core\Checkout\Order\OrderEntity;
 use Shopware\Core\Content\Product\ProductEntity;
 use Shopware\Core\System\SystemConfig\SystemConfigService;
 
@@ -73,9 +74,18 @@ class CoolRunnerAPI
 
     private function createV3($order, $country = null)
     {
+        /** @var OrderEntity $order */
+
         $customerAddress = $order->addresses->first();
         $customerInformation = $order->orderCustomer;
         $orderLines = $order->lineItems;
+
+        // Get CoolRunner CPS
+        $cps = $order->getDeliveries()->first()->getShippingMethod()->getCustomFields()['coolrunner_cps'];
+        $cps_exploded = explode('_', $cps);
+        $carrier = $cps_exploded[0];
+        $carrier_product = $cps_exploded[1];
+        $carrier_service = $cps_exploded[2];
 
         $data = [
             'sender' => [
@@ -106,9 +116,9 @@ class CoolRunnerAPI
             'width' => 15,
             'height' => 15,
             'weight' => 1000,
-            'carrier' => 'bring',
-            'carrier_product' => 'private',
-            'carrier_service' => 'delivery',
+            'carrier' => $carrier,
+            'carrier_product' => $carrier_product,
+            'carrier_service' => $carrier_service,
             'reference' => $order->orderNumber,
             'comment' => '',
             'description' => '',
@@ -124,20 +134,19 @@ class CoolRunnerAPI
             ];
         }
 
-        return $data;
+        $request = new Request(
+            'POST',
+            'https://api.coolrunner.dk/v3/shipments',
+            [
+                'Content-Type' => 'application/json',
+                'Authorization' => 'Basic ' . base64_encode($this->systemConfigService->get('CoolRunnerPlugin.config.apiemail').':'.$this->systemConfigService->get('CoolRunnerPlugin.config.apitoken'))
+            ],
+            json_encode($data)
+        );
 
-//        $request = new Request(
-//            'POST',
-//            'https://api.coolrunner.dk/v3/shipments',
-//            ['Content-Type' => 'application/json'],
-//            json_encode($data)
-//        );
-//
-//        $this($data);
-//
-//        $response = $this->restClient->send($request);
-//
-//        return $response;
+        $response = $this->restClient->send($request);
+
+        return $response->getBody();
     }
 
     private function createWMS($order, $country)
