@@ -3,6 +3,7 @@
 namespace CoolRunnerPlugin\Subscriber;
 
 use CoolRunnerPlugin\Controller\CoolRunnerAPI;
+use CoolRunnerPlugin\Service\DeliveryService;
 use CoolRunnerPlugin\Service\OrderService;
 use Psr\Log\LoggerInterface;
 use Shopware\Core\Checkout\Order\OrderEntity;
@@ -27,15 +28,19 @@ class OrderStateSubscriber implements EventSubscriberInterface
     /** @var OrderService */
     private $orderService;
 
+    /** @var DeliveryService */
+    private $deliveryService;
+
     /** @var EntityRepositoryInterface */
     private $countryRepository;
 
-    public function __construct(SystemConfigService $systemConfigService, LoggerInterface $logger, OrderService $orderService, EntityRepositoryInterface $countryRepository)
+    public function __construct(SystemConfigService $systemConfigService, LoggerInterface $logger, OrderService $orderService, DeliveryService $deliveryService, EntityRepositoryInterface $countryRepository)
     {
         $this->logger = $logger;
         $this->systemConfigService = $systemConfigService;
         $this->apiClient = new CoolRunnerAPI($systemConfigService);
         $this->orderService = $orderService;
+        $this->deliveryService = $deliveryService;
         $this->countryRepository = $countryRepository;
     }
 
@@ -48,21 +53,21 @@ class OrderStateSubscriber implements EventSubscriberInterface
 
     public function onDeliveryStateChange(StateMachineStateChangeEvent $event)
     {
-//        $this->logger->debug('CoolRunnerTest: ' . json_encode($event->getContext()));
-
         if($event->getStateEventName() == 'state_enter.order_delivery.state.shipped') {
-            // Get order
             /** @var OrderEntity $order */
             $order = $this->orderService->readData($event->getContext());
 
             // Get country
             $criteria = new Criteria();
             $criteria->addFilter(new EqualsFilter('id', $order->addresses->first()->countryId));
-
             $country = $this->countryRepository->search($criteria, $event->getContext())->first();
 
             // Create shipment
-            $this->logger->debug('CoolRunnerTest: ' . $this->apiClient->createShipment($order, $country));
+            $response = $this->apiClient->createShipment($order, $country);
+
+            if(isset($response['body']->package_number) AND $response['body']->package_number != "") {
+                $this->deliveryService->writeData($event->getContext(), $response['delivery_id'], $response['body']->package_number);
+            }
         }
     }
 }

@@ -10,6 +10,11 @@ use Shopware\Core\System\SystemConfig\SystemConfigService;
 
 class CoolRunnerAPI
 {
+    // TODO: Add print service into single order view
+    // TODO: Duplicate v3 call to WMS
+    // TODO: Add shipping methods to settings
+    // TODO: Get customs information from custom_fiels
+
     /** @var SystemConfigService $systemConfigService */
     private SystemConfigService $systemConfigService;
 
@@ -72,20 +77,22 @@ class CoolRunnerAPI
         };
     }
 
-    private function createV3($order, $country = null)
+    /** @var OrderEntity $order */
+    private function createV3(OrderEntity $order, $country = null)
     {
-        /** @var OrderEntity $order */
-
-        $customerAddress = $order->addresses->first();
-        $customerInformation = $order->orderCustomer;
-        $orderLines = $order->lineItems;
+        $customerAddress = $order->getAddresses()->first();
+        $customerInformation = $order->getOrderCustomer();
+        $orderLines = $order->getLineItems();
 
         // Get CoolRunner CPS
-        $cps = $order->getDeliveries()->first()->getShippingMethod()->getCustomFields()['coolrunner_cps'];
+        $delivery = $order->getDeliveries()->first();
+        $cps = $delivery->getShippingMethod()->getCustomFields()['coolrunner_cps'];
         $cps_exploded = explode('_', $cps);
         $carrier = $cps_exploded[0];
         $carrier_product = $cps_exploded[1];
         $carrier_service = $cps_exploded[2];
+
+        // TODO: Get phone
 
         $data = [
             'sender' => [
@@ -107,7 +114,7 @@ class CoolRunnerAPI
                 'zip_code' => $customerAddress->zipcode,
                 'city' => $customerAddress->city,
                 'country' => ($country != null) ? $country->iso : $customerAddress->country,
-                'phone' => '',
+                'phone' => 88888888,
                 'email' => $customerInformation->email,
                 'notify_sms' => '',
                 'notify_email' => $customerInformation->email
@@ -146,7 +153,7 @@ class CoolRunnerAPI
 
         $response = $this->restClient->send($request);
 
-        return $response->getBody();
+        return ['body' => json_decode($response->getBody()), 'delivery_id' => $delivery->getId()];
     }
 
     private function createWMS($order, $country)

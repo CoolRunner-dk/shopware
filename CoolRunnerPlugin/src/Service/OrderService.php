@@ -18,6 +18,7 @@ class OrderService
 
     public function readData(Context $context)
     {
+        // TODO: Get product id
         $criteria = new Criteria();
         $criteria->addFilter(new EqualsFilter('id', 'af41d3a3019147fb8edeabfe99a729b5'));
         $criteria->addAssociation('lineItems');
@@ -27,6 +28,15 @@ class OrderService
         $criteria->addAssociation('deliveries.shippingMethod.customFields');
 
         return $this->orderRepository->search($criteria, $context)->first();
+    }
+
+    public function writeData(Context $context)
+    {
+//        // TODO: Get product id
+//        $this->orderRepository->update([
+//            'id' =>  'af41d3a3019147fb8edeabfe99a729b5',
+//            'trackingCodes' => 'testtesttest'
+//        ], $context);
     }
 
 }
