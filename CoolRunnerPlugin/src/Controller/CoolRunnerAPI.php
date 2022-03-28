@@ -9,7 +9,6 @@ use Shopware\Core\System\SystemConfig\SystemConfigService;
 
 class CoolRunnerAPI
 {
-    // TODO: Duplicate v3 call to WMS
     // TODO: Add shipping methods to settings
     // TODO: Get customs information from custom_fields
     // TODO: Error handling
@@ -62,14 +61,14 @@ class CoolRunnerAPI
         return json_decode($response->getBody()->getContents());
     }
 
-    public function createShipment($order, $country)
+    public function createShipment($order, $country, $warehouse = '')
     {
          switch ($this->systemConfigService->get('CoolRunnerPlugin.config.warehouse')) {
              case 'internal':
                  return $this->createV3($order, $country);
                  break;
              case 'external':
-                 return $this->createWMS($order, $country);
+                 return $this->createWMS($order, $warehouse, $country);
                  break;
             default:
                 return false;
@@ -77,7 +76,6 @@ class CoolRunnerAPI
         };
     }
 
-    /** @var OrderEntity $order */
     private function createV3(OrderEntity $order, $country = null)
     {
         $customerAddress = $order->getAddresses()->first();
@@ -156,9 +154,84 @@ class CoolRunnerAPI
         return ['body' => json_decode($response->getBody()), 'delivery_id' => $delivery->getId()];
     }
 
-    private function createWMS($order, $country)
+    private function createWMS(OrderEntity $order, $warehouse, $country = null)
     {
-        return [];
+        $customerAddress = $order->getAddresses()->first();
+        $customerInformation = $order->getOrderCustomer();
+        $orderLines = $order->getLineItems();
+
+        // Get CoolRunner CPS
+        $delivery = $order->getDeliveries()->first();
+        $cps = $delivery->getShippingMethod()->getCustomFields()['coolrunner_cps'];
+        $cps_exploded = explode('_', $cps);
+        $carrier = $cps_exploded[0];
+        $carrier_product = $cps_exploded[1];
+        $carrier_service = $cps_exploded[2];
+
+        // TODO: Get phone
+
+        $data = [
+            'warehouse' => $warehouse,
+            'order_number' => $order->orderNumber,
+            'sender' => [
+                'name' => $this->systemConfigService->get('CoolRunnerPlugin.config.sendershop'),
+                'attention' => '',
+                'street1' => $this->systemConfigService->get('CoolRunnerPlugin.config.senderstreet1'),
+                'street2' => $this->systemConfigService->get('CoolRunnerPlugin.config.senderstreet2'),
+                'zip_code' => $this->systemConfigService->get('CoolRunnerPlugin.config.senderzipcode'),
+                'city' => $this->systemConfigService->get('CoolRunnerPlugin.config.sendercity'),
+                'country' => $this->systemConfigService->get('CoolRunnerPlugin.config.sendercountry'),
+                'phone' => $this->systemConfigService->get('CoolRunnerPlugin.config.senderphone'),
+                'email' => $this->systemConfigService->get('CoolRunnerPlugin.config.senderemail')
+            ],
+            'receiver' => [
+                'name' => ($customerAddress->company != '') ? $customerAddress->company : $customerAddress->firstName . ' ' . $customerAddress->lastName,
+                'attention' => ($customerAddress->company != '') ? $customerAddress->firstName . ' ' . $customerAddress->lastName : '',
+                'street1' => $customerAddress->street,
+                'street2' => '',
+                'zip_code' => $customerAddress->zipcode,
+                'city' => $customerAddress->city,
+                'country' => ($country != null) ? $country->iso : $customerAddress->country,
+                'phone' => 88888888,
+                'email' => $customerInformation->email,
+                'notify_sms' => '',
+                'notify_email' => $customerInformation->email
+            ],
+            'length' => 15,
+            'width' => 15,
+            'height' => 15,
+            'weight' => 1000,
+            'carrier' => $carrier,
+            'carrier_product' => $carrier_product,
+            'carrier_service' => $carrier_service,
+            'reference' => $order->orderNumber,
+            'comment' => '',
+            'description' => '',
+            'label_format' => $this->systemConfigService->get('CoolRunnerPlugin.config.printformat'),
+            'servicepoint_id' => 0,
+            'order_lines' => []
+        ];
+
+        foreach ($orderLines as $orderLine) {
+            $data['order_lines'][] = [
+                'qty' => $orderLine->quantity,
+                'item_number' => $orderLine->payload['productNumber']
+            ];
+        }
+
+        $request = new Request(
+            'POST',
+            'https://api.coolrunner.dk/wms/orders',
+            [
+                'Content-Type' => 'application/json',
+                'Authorization' => 'Basic ' . base64_encode($this->systemConfigService->get('CoolRunnerPlugin.config.apiemail').':'.$this->systemConfigService->get('CoolRunnerPlugin.config.apitoken'))
+            ],
+            json_encode($data)
+        );
+
+        $response = $this->restClient->send($request);
+
+        return ['body' => json_decode($response->getBody()), 'delivery_id' => $delivery->getId()];
     }
 
     public function getPrinters()
@@ -166,6 +239,21 @@ class CoolRunnerAPI
         $request = new Request(
             'GET',
             'https://api.coolrunner.dk/printers',
+            [
+                'Authorization' => 'Basic ' . base64_encode($this->systemConfigService->get('CoolRunnerPlugin.config.apiemail').':'.$this->systemConfigService->get('CoolRunnerPlugin.config.apitoken'))
+            ]
+        );
+
+        $response = $this->restClient->send($request);
+
+        return json_decode($response->getBody());
+    }
+
+    public function getWarehouses()
+    {
+        $request = new Request(
+            'GET',
+            'https://api.coolrunner.dk/wms/warehouses',
             [
                 'Authorization' => 'Basic ' . base64_encode($this->systemConfigService->get('CoolRunnerPlugin.config.apiemail').':'.$this->systemConfigService->get('CoolRunnerPlugin.config.apitoken'))
             ]

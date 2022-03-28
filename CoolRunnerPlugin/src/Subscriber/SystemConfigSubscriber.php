@@ -5,6 +5,7 @@ namespace CoolRunnerPlugin\Subscriber;
 use CoolRunnerPlugin\Controller\CoolRunnerAPI;
 use CoolRunnerPlugin\Service\MethodsService;
 use CoolRunnerPlugin\Service\PrintService;
+use CoolRunnerPlugin\Service\WarehouseService;
 use Psr\Log\LoggerInterface;
 use Shopware\Core\Framework\DataAbstractionLayer\Event\EntityWrittenEvent;
 use Shopware\Core\System\SystemConfig\SystemConfigService;
@@ -21,6 +22,9 @@ class SystemConfigSubscriber implements EventSubscriberInterface
     /** @var MethodsService */
     private MethodsService $methodsService;
 
+    /** @var WarehouseService */
+    private WarehouseService $warehouseService;
+
     /** @var LoggerInterface */
     private LoggerInterface $logger;
 
@@ -31,11 +35,12 @@ class SystemConfigSubscriber implements EventSubscriberInterface
      * @param SystemConfigService $systemConfigService
      * @param LoggerInterface $logger
      */
-    public function __construct(SystemConfigService $systemConfigService, PrintService $printService, MethodsService $methodsService, LoggerInterface $logger)
+    public function __construct(SystemConfigService $systemConfigService, PrintService $printService, MethodsService $methodsService, WarehouseService $warehouseService, LoggerInterface $logger)
     {
         $this->systemConfigService = $systemConfigService;
         $this->printService = $printService;
         $this->methodsService = $methodsService;
+        $this->warehouseService = $warehouseService;
         $this->logger = $logger;
         $this->apiClient = new CoolRunnerAPI($systemConfigService);
     }
@@ -63,6 +68,10 @@ class SystemConfigSubscriber implements EventSubscriberInterface
                     $this->connectSmartCheckout($payload['configurationValue']);
                     $this->getPrinters($event->getContext());
                     $this->getShippingMethods($event->getContext());
+
+                    if($this->systemConfigService->get('CoolRunnerPlugin.config.warehouse') == "external") {
+                        $this->getWarehouses($event->getContext());
+                    }
                     break;
             }
         }
@@ -102,10 +111,15 @@ class SystemConfigSubscriber implements EventSubscriberInterface
         foreach ($methods as $method) {
             $this->methodsService->writeData($context, $method['name'], $method['cps'], $method['from'], $method['to']);
         }
+    }
 
-        // $this->logger->debug('CoolRunnerTest: ' . json_encode($methods));
+    public function getWarehouses($context)
+    {
+        $warehouses = $this->apiClient->getWarehouses();
 
-        //$this->methodsService->writeData($context);
+        foreach ($warehouses as $shorten => $warehouse) {
+            $this->warehouseService->writeData($context, $warehouse->title, $shorten);
+        }
     }
 
 }

@@ -84,6 +84,15 @@
     </card>
 
     <card>
+        <title>External Settings</title>
+        <component name="sw-entity-single-select">
+            <name>externalwarehouse</name>
+            <entity>coolrunner_warehouses</entity>
+            <label>Choose which warehouse</label>
+        </component>
+    </card>
+
+    <card>
         <title>Sender</title>
         <input-field type="text">
             <name>sendershop</name>
