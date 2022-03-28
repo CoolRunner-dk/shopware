@@ -2,6 +2,8 @@
 
 namespace CoolRunnerPlugin\Service;
 
+use Shopware\Core\Checkout\Cart\Exception\OrderNotFoundException;
+use Shopware\Core\Checkout\Order\OrderEntity;
 use Shopware\Core\Framework\Context;
 use Shopware\Core\Framework\DataAbstractionLayer\EntityRepositoryInterface;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Criteria;
@@ -16,11 +18,11 @@ class OrderService
         $this->orderRepository = $orderRepository;
     }
 
-    public function readData(Context $context)
+    public function readData(Context $context, $orderId)
     {
         // TODO: Get product id
         $criteria = new Criteria();
-        $criteria->addFilter(new EqualsFilter('id', 'af41d3a3019147fb8edeabfe99a729b5'));
+        $criteria->addFilter(new EqualsFilter('id', $orderId));
         $criteria->addAssociation('lineItems');
         $criteria->addAssociation('addresses');
         $criteria->addAssociation('customFields');
@@ -28,6 +30,19 @@ class OrderService
         $criteria->addAssociation('deliveries.shippingMethod.customFields');
 
         return $this->orderRepository->search($criteria, $context)->first();
+    }
+
+    public function getOrder($orderId, Context $context)
+    {
+        $criteria = new Criteria([$orderId]);
+
+        $order = $this->orderRepository->search($criteria, $context)->first();
+
+        if($order instanceof OrderEntity) {
+            return $order;
+        }
+
+        throw new OrderNotFoundException($orderId);
     }
 
     public function writeData(Context $context)

@@ -5,15 +5,15 @@ namespace CoolRunnerPlugin\Controller;
 use GuzzleHttp\Client;
 use GuzzleHttp\Psr7\Request;
 use Shopware\Core\Checkout\Order\OrderEntity;
-use Shopware\Core\Content\Product\ProductEntity;
 use Shopware\Core\System\SystemConfig\SystemConfigService;
 
 class CoolRunnerAPI
 {
-    // TODO: Add print service into single order view
     // TODO: Duplicate v3 call to WMS
     // TODO: Add shipping methods to settings
-    // TODO: Get customs information from custom_fiels
+    // TODO: Get customs information from custom_fields
+    // TODO: Error handling
+    // TODO: Check if possible to create condition from plugin
 
     /** @var SystemConfigService $systemConfigService */
     private SystemConfigService $systemConfigService;
@@ -159,5 +159,80 @@ class CoolRunnerAPI
     private function createWMS($order, $country)
     {
         return [];
+    }
+
+    public function getPrinters()
+    {
+        $request = new Request(
+            'GET',
+            'https://api.coolrunner.dk/printers',
+            [
+                'Authorization' => 'Basic ' . base64_encode($this->systemConfigService->get('CoolRunnerPlugin.config.apiemail').':'.$this->systemConfigService->get('CoolRunnerPlugin.config.apitoken'))
+            ]
+        );
+
+        $response = $this->restClient->send($request);
+
+        return json_decode($response->getBody());
+    }
+
+    public function printLabel($packageNumber, $printerAlias)
+    {
+        $data = [
+            'package_number' => (string) $packageNumber
+        ];
+
+        $request = new Request(
+            'POST',
+            'https://api.coolrunner.dk/printers/'.$printerAlias.'/print',
+            [
+                'Content-Type' => 'application/json',
+                'Authorization' => 'Basic ' . base64_encode($this->systemConfigService->get('CoolRunnerPlugin.config.apiemail').':'.$this->systemConfigService->get('CoolRunnerPlugin.config.apitoken'))
+            ],
+            json_encode($data)
+        );
+
+        $response = $this->restClient->send($request);
+
+        return json_decode($response->getBody());
+    }
+
+    public function getMethods()
+    {
+        $request = new Request(
+            'GET',
+            'https://api.coolrunner.dk/v3/products/' . $this->systemConfigService->get('CoolRunnerPlugin.config.sendercountry'),
+            [
+                'Authorization' => 'Basic ' . base64_encode($this->systemConfigService->get('CoolRunnerPlugin.config.apiemail').':'.$this->systemConfigService->get('CoolRunnerPlugin.config.apitoken'))
+            ]
+        );
+
+        $response_json = $this->restClient->send($request)->getBody();
+        $response = json_decode($response_json);
+        $methods = [];
+
+        foreach ($response as $receiver_country => $carriers) {
+            foreach ($carriers as $carrier => $carrier_products) {
+                foreach ($carrier_products as $product => $carrier_product) {
+                    foreach ($carrier_product as $carrier_service) {
+
+                        if(isset($carrier_service->services[0]->code) AND $carrier_service->services[0]->code != "") {
+                            $cps = $carrier . '_' . $product . '_' . $carrier_service->services[0]->code;
+                        } else {
+                            $cps = $carrier . '_' . $product;
+                        }
+
+                        $methods[] = [
+                            'name' => $carrier_service->title,
+                            'cps' => $cps,
+                            'from' => $this->systemConfigService->get('CoolRunnerPlugin.config.sendercountry'),
+                            'to' => $receiver_country
+                        ];
+                    }
+                }
+            }
+        }
+
+        return $methods;
     }
 }

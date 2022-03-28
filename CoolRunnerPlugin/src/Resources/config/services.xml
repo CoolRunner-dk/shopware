@@ -5,6 +5,8 @@
     <services>
         <service id="CoolRunnerPlugin\Subscriber\SystemConfigSubscriber">
             <argument type="service" id="Shopware\Core\System\SystemConfig\SystemConfigService" />
+            <argument type="service" id="CoolRunnerPlugin\Service\PrintService" />
+            <argument type="service" id="CoolRunnerPlugin\Service\MethodsService" />
             <argument type="service" id="logger"/>
             <tag name="kernel.event_subscriber" />
         </service>
@@ -24,6 +26,7 @@
             <argument type="service" id="logger" />
             <argument type="service" id="CoolRunnerPlugin\Service\OrderService" />
             <argument type="service" id="CoolRunnerPlugin\Service\DeliveryService" />
+            <argument type="service" id="CoolRunnerPlugin\Service\PrintService" />
             <argument type="service" id="country.repository"/>
             <tag name="kernel.event_subscriber"/>
         </service>
@@ -32,9 +35,26 @@
             <argument type="service" id="order.repository"/>
         </service>
 
+        <service id="CoolRunnerPlugin\Service\PrintService">
+            <argument type="service" id="coolrunner_printers.repository"/>
+        </service>
+
+        <service id="CoolRunnerPlugin\Service\MethodsService">
+            <argument type="service" id="coolrunner_methods.repository"/>
+        </service>
+
         <service id="CoolRunnerPlugin\Service\DeliveryService">
             <argument type="service" id="order_delivery.repository" />
         </service>
+
+        <service id="CoolRunnerPlugin\Core\Content\PrintService\PrintServiceDefinition">
+            <tag name="shopware.entity.definition" entity="coolrunner_printers" />
+        </service>
+
+        <service id="CoolRunnerPlugin\Core\Content\Methods\MethodsDefinition">
+            <tag name="shopware.entity.definition" entity="coolrunner_methods" />
+        </service>
+
     </services>
 
 </container>

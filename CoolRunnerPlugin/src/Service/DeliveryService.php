@@ -25,11 +25,20 @@ class DeliveryService
         return $this->deliveryRepository->search($criteria, $context)->first();
     }
 
-    public function writeData(Context $context, $delivery_id, $package_number)
+    public function getDeliveryById($deliveryId, Context $context)
+    {
+        $criteria = new Criteria();
+        $criteria->addFilter(new EqualsFilter('id', $deliveryId));
+        $criteria->addAssociation('order');
+
+        return $this->deliveryRepository->search($criteria, $context)->first();
+    }
+
+    public function writeData(Context $context, $deliveryId, $package_number)
     {
         $this->deliveryRepository->update([
             [
-                'id' => $delivery_id,
+                'id' => $deliveryId,
                 'trackingCodes' => [$package_number]
             ]
         ], $context);

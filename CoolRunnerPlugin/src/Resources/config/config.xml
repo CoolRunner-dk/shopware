@@ -37,7 +37,7 @@
     </card>
 
     <card>
-        <title>Warehouse / Print settings</title>
+        <title>Warehouse / Print Settings</title>
         <input-field type="single-select">
             <name>warehouse</name>
             <label>Warehouse</label>
@@ -67,6 +67,20 @@
                 </option>
             </options>
         </input-field>
+    </card>
+
+    <card>
+        <title>Inhouse Settings</title>
+        <input-field type="bool">
+            <name>autoprint</name>
+            <label>Auto print label on creation (Print Service)</label>
+        </input-field>
+
+        <component name="sw-entity-single-select">
+            <name>printer</name>
+            <entity>coolrunner_printers</entity>
+            <label>Choose printer</label>
+        </component>
     </card>
 
     <card>
