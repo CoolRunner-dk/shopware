@@ -3,6 +3,7 @@
 namespace CoolRunnerPlugin\Subscriber;
 
 use CoolRunnerPlugin\Controller\CoolRunnerAPI;
+use CoolRunnerPlugin\Service\CurrencyService;
 use CoolRunnerPlugin\Service\DeliveryService;
 use CoolRunnerPlugin\Service\MethodsService;
 use CoolRunnerPlugin\Service\OrderService;
@@ -43,6 +44,9 @@ class OrderStateSubscriber implements EventSubscriberInterface
     /** @var MethodsService */
     private $methodsService;
 
+    /** @var CurrencyService */
+    private $currencyService;
+
     /** @var EntityRepositoryInterface */
     private $countryRepository;
 
@@ -54,6 +58,7 @@ class OrderStateSubscriber implements EventSubscriberInterface
         PrintService $printService,
         WarehouseService $warehouseService,
         MethodsService $methodsService,
+        CurrencyService $currencyService,
         EntityRepositoryInterface $countryRepository
     )
     {
@@ -65,6 +70,7 @@ class OrderStateSubscriber implements EventSubscriberInterface
         $this->printService = $printService;
         $this->warehouseService = $warehouseService;
         $this->methodsService = $methodsService;
+        $this->currencyService = $currencyService;
         $this->countryRepository = $countryRepository;
     }
 
@@ -92,30 +98,33 @@ class OrderStateSubscriber implements EventSubscriberInterface
             // Get shipping method
             $shipping_method = $this->methodsService->getMethodById($event->getContext(), $order->getDeliveries()->first()->getShippingMethod()->getCustomFields()['coolrunner_methods']);
 
+            // Get Currency
+            $currency = $this->currencyService->getCurrencyById($event->getContext(), $order->getCurrencyId());
+
             // Create shipment
             if($this->systemConfigService->get('CoolRunnerPlugin.config.warehouse') == 'internal') {
-                $response = $this->apiClient->createShipment($order, $country, $shipping_method);
-
-                $this->logger->debug('CoolRunnerTest: ' . json_encode($response));
+                $response = $this->apiClient->createShipment($order, $country, $shipping_method, $currency);
             } else {
                 $warehouse = $this->warehouseService->getWarehouseById($event->getContext(), $this->systemConfigService->get('CoolRunnerPlugin.config.externalwarehouse'));
-                $response = $this->apiClient->createShipment($order, $country, $shipping_method, $warehouse->getShorten());
+                $response = $this->apiClient->createShipment($order, $country, $shipping_method, $currency, $warehouse->getShorten());
             }
 
-            // Handle V3
             if(isset($response['body']->package_number) AND $response['body']->package_number != "") {
+                // Handle V3
                 $this->deliveryService->writeData($event->getContext(), $response['delivery_id'], $response['body']->package_number);
 
                 if($this->systemConfigService->get('CoolRunnerPlugin.config.autoprint') AND $this->systemConfigService->get('CoolRunnerPlugin.config.warehouse') == "internal") {
                     $printer = $this->printService->getPrinterById($event->getContext(), $this->systemConfigService->get('CoolRunnerPlugin.config.printer'));
                     $this->apiClient->printLabel($response['body']->package_number, $printer->getName());
                 }
+            } elseif (isset($response['body']->shipments[0]->package_number) AND $response['body']->shipments[0]->package_number != "") {
+                // Handle WMS
+                $this->deliveryService->writeData($event->getContext(), $response['delivery_id'], $response['body']->shipments[0]->package_number);
+            } else {
+                $this->logger->error($response);
             }
 
-            // Handle WMS
-            if(isset($response['body']->shipments[0]->package_number) AND $response['body']->shipments[0]->package_number != "") {
-                $this->deliveryService->writeData($event->getContext(), $response['delivery_id'], $response['body']->shipments[0]->package_number);
-            }
+
         }
     }
 }

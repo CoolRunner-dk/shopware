@@ -26,7 +26,8 @@ class OrderService
         $criteria->addAssociation('lineItems');
         $criteria->addAssociation('addresses');
         $criteria->addAssociation('customFields');
-        $criteria->addAssociation('lineItems.product.customFields');
+        $criteria->addAssociation('lineItems.customFields');
+        $criteria->addAssociation('lineItems.product');
         $criteria->addAssociation('deliveries.shippingMethod.customFields');
 
         return $this->orderRepository->search($criteria, $context)->first();

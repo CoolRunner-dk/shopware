@@ -31,6 +31,7 @@
             <argument type="service" id="CoolRunnerPlugin\Service\PrintService" />
             <argument type="service" id="CoolRunnerPlugin\Service\WarehouseService" />
             <argument type="service" id="CoolRunnerPlugin\Service\MethodsService" />
+            <argument type="service" id="CoolRunnerPlugin\Service\CurrencyService" />
             <argument type="service" id="country.repository"/>
             <tag name="kernel.event_subscriber"/>
         </service>
@@ -57,6 +58,10 @@
 
         <service id="CoolRunnerPlugin\Service\CustomFieldService">
             <argument type="service" id="custom_field_set.repository" />
+        </service>
+
+        <service id="CoolRunnerPlugin\Service\CurrencyService">
+            <argument type="service" id="currency.repository" />
         </service>
 
         <service id="CoolRunnerPlugin\Core\Content\PrintService\PrintServiceDefinition">

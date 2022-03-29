@@ -6,14 +6,11 @@ use GuzzleHttp\Client;
 use GuzzleHttp\Psr7\Request;
 use Psr\Log\LoggerInterface;
 use Shopware\Core\Checkout\Order\OrderEntity;
+use Shopware\Core\Content\Product\ProductEntity;
 use Shopware\Core\System\SystemConfig\SystemConfigService;
 
 class CoolRunnerAPI
 {
-    // TODO: Get customs information from custom_fields
-    // TODO: Error handling
-    // TODO: Check if possible to create condition from plugin
-
     /** @var SystemConfigService $systemConfigService */
     private SystemConfigService $systemConfigService;
 
@@ -62,14 +59,14 @@ class CoolRunnerAPI
         return json_decode($response->getBody()->getContents());
     }
 
-    public function createShipment($order, $country, $shipping_method, $warehouse = '')
+    public function createShipment($order, $country, $shipping_method, $currency, $warehouse = '')
     {
          switch ($this->systemConfigService->get('CoolRunnerPlugin.config.warehouse')) {
              case 'internal':
-                 return $this->createV3($order, $shipping_method, $country);
+                 return $this->createV3($order, $shipping_method, $currency, $country);
                  break;
              case 'external':
-                 return $this->createWMS($order, $warehouse, $shipping_method, $country);
+                 return $this->createWMS($order, $warehouse, $shipping_method, $currency, $country);
                  break;
             default:
                 return false;
@@ -77,7 +74,7 @@ class CoolRunnerAPI
         };
     }
 
-    private function createV3(OrderEntity $order, $shipping_method, $country = null)
+    private function createV3(OrderEntity $order, $shipping_method, $currency, $country = null)
     {
         $customerAddress = $order->getAddresses()->first();
         $customerInformation = $order->getOrderCustomer();
@@ -90,8 +87,6 @@ class CoolRunnerAPI
         $carrier = $cps_exploded[0];
         $carrier_product = $cps_exploded[1];
         $carrier_service = $cps_exploded[2];
-
-        // TODO: Get phone
 
         $data = [
             'sender' => [
@@ -133,12 +128,28 @@ class CoolRunnerAPI
             'order_lines' => []
         ];
 
+        $totalWeight = 0;
         foreach ($orderLines as $orderLine) {
+            /**@var ProductEntity $product*/
+            $product = $orderLine->getProduct();
+
             $data['order_lines'][] = [
                 'qty' => $orderLine->quantity,
-                'item_number' => $orderLine->payload['productNumber']
+                'item_number' => $orderLine->payload['productNumber'],
+                'customs' => [
+                    'description' => $orderLine->label,
+                    'total_price' => $orderLine->totalPrice,
+                    'currency_code' => $currency->isoCode,
+                    'sender_tariff' => $orderLine->getPayload()['customFields']['coolrunner_customs_hscode_from'],
+                    'receiver_tariff' =>  $orderLine->getPayload()['customFields']['coolrunner_customs_hscode_to'],
+                    'weight' => ($product->getWeight()*1000)*$orderLine->quantity
+                ]
             ];
+
+            $totalWeight += ($product->getWeight()*1000)*$orderLine->quantity;
         }
+
+        $data['weight'] = $totalWeight;
 
         $request = new Request(
             'POST',
@@ -155,7 +166,7 @@ class CoolRunnerAPI
         return ['body' => json_decode($response->getBody()), 'delivery_id' => $delivery->getId()];
     }
 
-    private function createWMS(OrderEntity $order, $warehouse, $shipping_method, $country = null)
+    private function createWMS(OrderEntity $order, $warehouse, $shipping_method, $currency, $country = null)
     {
         $customerAddress = $order->getAddresses()->first();
         $customerInformation = $order->getOrderCustomer();
@@ -216,7 +227,15 @@ class CoolRunnerAPI
         foreach ($orderLines as $orderLine) {
             $data['order_lines'][] = [
                 'qty' => $orderLine->quantity,
-                'item_number' => $orderLine->payload['productNumber']
+                'item_number' => $orderLine->payload['productNumber'],
+                'customs' => [
+                    'description' => $orderLine->label,
+                    'total_price' => $orderLine->totalPrice,
+                    'currency_code' => $currency->isoCode,
+                    'sender_tariff' => $orderLine->getPayload()['customFields']['coolrunner_customs_hscode_from'],
+                    'receiver_tariff' =>  $orderLine->getPayload()['customFields']['coolrunner_customs_hscode_to'],
+                    'weight' => ''
+                ]
             ];
         }
 
