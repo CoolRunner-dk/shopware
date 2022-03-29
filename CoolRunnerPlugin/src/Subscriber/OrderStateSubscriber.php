@@ -85,7 +85,10 @@ class OrderStateSubscriber implements EventSubscriberInterface
     {
         if($event->getStateEventName() == 'state_enter.order_delivery.state.shipped') {
             /** @var OrderEntity $order */
-            $tempOrder = $this->deliveryService->getDeliveryById($event->getTransition()->getEntityId(), $event->getContext())->getOrder();
+            $tempOrder = $this->deliveryService->getDeliveryById(
+                $event->getTransition()->getEntityId(),
+                $event->getContext()
+            )->getOrder();
 
             /** @var OrderEntity $order */
             $order = $this->orderService->readData($event->getContext(), $tempOrder->getId());
@@ -96,7 +99,10 @@ class OrderStateSubscriber implements EventSubscriberInterface
             $country = $this->countryRepository->search($country_criteria, $event->getContext())->first();
 
             // Get shipping method
-            $shipping_method = $this->methodsService->getMethodById($event->getContext(), $order->getDeliveries()->first()->getShippingMethod()->getCustomFields()['coolrunner_methods']);
+            $shipping_method = $this->methodsService->getMethodById(
+                $event->getContext(),
+                $order->getDeliveries()->first()->getShippingMethod()->getCustomFields()['coolrunner_methods']
+            );
 
             // Get Currency
             $currency = $this->currencyService->getCurrencyById($event->getContext(), $order->getCurrencyId());
@@ -105,7 +111,11 @@ class OrderStateSubscriber implements EventSubscriberInterface
             if($this->systemConfigService->get('CoolRunnerPlugin.config.warehouse') == 'internal') {
                 $response = $this->apiClient->createShipment($order, $country, $shipping_method, $currency);
             } else {
-                $warehouse = $this->warehouseService->getWarehouseById($event->getContext(), $this->systemConfigService->get('CoolRunnerPlugin.config.externalwarehouse'));
+                $warehouse = $this->warehouseService->getWarehouseById(
+                    $event->getContext(),
+                    $this->systemConfigService->get('CoolRunnerPlugin.config.externalwarehouse')
+                );
+
                 $response = $this->apiClient->createShipment($order, $country, $shipping_method, $currency, $warehouse->getShorten());
             }
 
@@ -114,16 +124,21 @@ class OrderStateSubscriber implements EventSubscriberInterface
                 $this->deliveryService->writeData($event->getContext(), $response['delivery_id'], $response['body']->package_number);
 
                 if($this->systemConfigService->get('CoolRunnerPlugin.config.autoprint') AND $this->systemConfigService->get('CoolRunnerPlugin.config.warehouse') == "internal") {
-                    $printer = $this->printService->getPrinterById($event->getContext(), $this->systemConfigService->get('CoolRunnerPlugin.config.printer'));
+                    $printer = $this->printService->getPrinterById(
+                        $event->getContext(),
+                        $this->systemConfigService->get('CoolRunnerPlugin.config.printer')
+                    );
+
                     $this->apiClient->printLabel($response['body']->package_number, $printer->getName());
                 }
             } elseif (isset($response['body']->shipments[0]->package_number) AND $response['body']->shipments[0]->package_number != "") {
                 // Handle WMS
-                $this->deliveryService->writeData($event->getContext(), $response['delivery_id'], $response['body']->shipments[0]->package_number);
-            } else {
-                $this->logger->error($response);
+                $this->deliveryService->writeData(
+                    $event->getContext(),
+                    $response['delivery_id'],
+                    $response['body']->shipments[0]->package_number
+                );
             }
-
 
         }
     }

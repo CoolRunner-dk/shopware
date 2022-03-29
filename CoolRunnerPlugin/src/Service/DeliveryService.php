@@ -16,15 +16,6 @@ class DeliveryService
         $this->deliveryRepository = $deliveryRepository;
     }
 
-    public function readData(Context $context)
-    {
-        // TODO: Get id
-        $criteria = new Criteria();
-        $criteria->addFilter(new EqualsFilter('id', '8016fe2995c04f5f8c8b6d082db0d57e'));
-
-        return $this->deliveryRepository->search($criteria, $context)->first();
-    }
-
     public function getDeliveryById($deliveryId, Context $context)
     {
         $criteria = new Criteria();
