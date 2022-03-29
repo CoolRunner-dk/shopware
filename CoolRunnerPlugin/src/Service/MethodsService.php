@@ -17,15 +17,23 @@ class MethodsService
         $this->methodsRepository = $methodsRepository;
     }
 
+    public function getMethodById(Context $context, $method_id)
+    {
+        $criteria = new Criteria([$method_id]);
+
+        return $this->methodsRepository->search($criteria, $context)->first();
+    }
+
     public function writeData(Context $context, $name, $cps, $from, $to)
     {
         $criteria = new Criteria();
         $criteria->addFilter(new EqualsFilter('cps', $cps));
 
         if(empty($this->methodsRepository->search($criteria, $context)->first())) {
+            $finalName = explode('(', $name)[0] . '('. $cps .')';
             $this->methodsRepository->upsert([
                 [
-                    'name' =>  $name,
+                    'name' =>  $finalName,
                     'cps' => $cps,
                     'from' => $from,
                     'to' => $to

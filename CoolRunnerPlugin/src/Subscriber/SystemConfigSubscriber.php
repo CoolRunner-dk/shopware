@@ -3,6 +3,7 @@
 namespace CoolRunnerPlugin\Subscriber;
 
 use CoolRunnerPlugin\Controller\CoolRunnerAPI;
+use CoolRunnerPlugin\Service\CustomFieldService;
 use CoolRunnerPlugin\Service\MethodsService;
 use CoolRunnerPlugin\Service\PrintService;
 use CoolRunnerPlugin\Service\WarehouseService;
@@ -25,6 +26,9 @@ class SystemConfigSubscriber implements EventSubscriberInterface
     /** @var WarehouseService */
     private WarehouseService $warehouseService;
 
+    /** @var CustomFieldService */
+    private CustomFieldService $customFieldService;
+
     /** @var LoggerInterface */
     private LoggerInterface $logger;
 
@@ -35,12 +39,19 @@ class SystemConfigSubscriber implements EventSubscriberInterface
      * @param SystemConfigService $systemConfigService
      * @param LoggerInterface $logger
      */
-    public function __construct(SystemConfigService $systemConfigService, PrintService $printService, MethodsService $methodsService, WarehouseService $warehouseService, LoggerInterface $logger)
+    public function __construct(
+        SystemConfigService $systemConfigService,
+        PrintService $printService,
+        MethodsService $methodsService,
+        WarehouseService $warehouseService,
+        CustomFieldService $customFieldService,
+        LoggerInterface $logger)
     {
         $this->systemConfigService = $systemConfigService;
         $this->printService = $printService;
         $this->methodsService = $methodsService;
         $this->warehouseService = $warehouseService;
+        $this->customFieldService = $customFieldService;
         $this->logger = $logger;
         $this->apiClient = new CoolRunnerAPI($systemConfigService);
     }
@@ -68,6 +79,7 @@ class SystemConfigSubscriber implements EventSubscriberInterface
                     $this->connectSmartCheckout($payload['configurationValue']);
                     $this->getPrinters($event->getContext());
                     $this->getShippingMethods($event->getContext());
+                    $this->createSWCustomFields($event->getContext());
 
                     if($this->systemConfigService->get('CoolRunnerPlugin.config.warehouse') == "external") {
                         $this->getWarehouses($event->getContext());
@@ -122,4 +134,8 @@ class SystemConfigSubscriber implements EventSubscriberInterface
         }
     }
 
+    public function createSWCustomFields($context)
+    {
+        $this->customFieldService->createSWCustomFields($context);
+    }
 }

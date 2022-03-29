@@ -4,6 +4,7 @@ namespace CoolRunnerPlugin\Subscriber;
 
 use CoolRunnerPlugin\Controller\CoolRunnerAPI;
 use CoolRunnerPlugin\Service\DeliveryService;
+use CoolRunnerPlugin\Service\MethodsService;
 use CoolRunnerPlugin\Service\OrderService;
 use CoolRunnerPlugin\Service\PrintService;
 use CoolRunnerPlugin\Service\WarehouseService;
@@ -39,6 +40,9 @@ class OrderStateSubscriber implements EventSubscriberInterface
     /** @var WarehouseService */
     private $warehouseService;
 
+    /** @var MethodsService */
+    private $methodsService;
+
     /** @var EntityRepositoryInterface */
     private $countryRepository;
 
@@ -49,6 +53,7 @@ class OrderStateSubscriber implements EventSubscriberInterface
         DeliveryService $deliveryService,
         PrintService $printService,
         WarehouseService $warehouseService,
+        MethodsService $methodsService,
         EntityRepositoryInterface $countryRepository
     )
     {
@@ -59,6 +64,7 @@ class OrderStateSubscriber implements EventSubscriberInterface
         $this->deliveryService = $deliveryService;
         $this->printService = $printService;
         $this->warehouseService = $warehouseService;
+        $this->methodsService = $methodsService;
         $this->countryRepository = $countryRepository;
     }
 
@@ -79,16 +85,21 @@ class OrderStateSubscriber implements EventSubscriberInterface
             $order = $this->orderService->readData($event->getContext(), $tempOrder->getId());
 
             // Get country
-            $criteria = new Criteria();
-            $criteria->addFilter(new EqualsFilter('id', $order->addresses->first()->countryId));
-            $country = $this->countryRepository->search($criteria, $event->getContext())->first();
+            $country_criteria = new Criteria();
+            $country_criteria->addFilter(new EqualsFilter('id', $order->addresses->first()->countryId));
+            $country = $this->countryRepository->search($country_criteria, $event->getContext())->first();
+
+            // Get shipping method
+            $shipping_method = $this->methodsService->getMethodById($event->getContext(), $order->getDeliveries()->first()->getShippingMethod()->getCustomFields()['coolrunner_methods']);
 
             // Create shipment
             if($this->systemConfigService->get('CoolRunnerPlugin.config.warehouse') == 'internal') {
-                $response = $this->apiClient->createShipment($order, $country);
+                $response = $this->apiClient->createShipment($order, $country, $shipping_method);
+
+                $this->logger->debug('CoolRunnerTest: ' . json_encode($response));
             } else {
                 $warehouse = $this->warehouseService->getWarehouseById($event->getContext(), $this->systemConfigService->get('CoolRunnerPlugin.config.externalwarehouse'));
-                $response = $this->apiClient->createShipment($order, $country, $warehouse->getShorten());
+                $response = $this->apiClient->createShipment($order, $country, $shipping_method, $warehouse->getShorten());
             }
 
             // Handle V3
@@ -102,7 +113,6 @@ class OrderStateSubscriber implements EventSubscriberInterface
             }
 
             // Handle WMS
-
             if(isset($response['body']->shipments[0]->package_number) AND $response['body']->shipments[0]->package_number != "") {
                 $this->deliveryService->writeData($event->getContext(), $response['delivery_id'], $response['body']->shipments[0]->package_number);
             }

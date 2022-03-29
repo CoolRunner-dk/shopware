@@ -4,12 +4,12 @@ namespace CoolRunnerPlugin\Controller;
 
 use GuzzleHttp\Client;
 use GuzzleHttp\Psr7\Request;
+use Psr\Log\LoggerInterface;
 use Shopware\Core\Checkout\Order\OrderEntity;
 use Shopware\Core\System\SystemConfig\SystemConfigService;
 
 class CoolRunnerAPI
 {
-    // TODO: Add shipping methods to settings
     // TODO: Get customs information from custom_fields
     // TODO: Error handling
     // TODO: Check if possible to create condition from plugin
@@ -24,6 +24,7 @@ class CoolRunnerAPI
     {
         $this->systemConfigService = $systemConfigService;
         $this->restClient = new Client();
+
     }
 
     public function connect($installation_token, $shop_name, $shop_url)
@@ -61,14 +62,14 @@ class CoolRunnerAPI
         return json_decode($response->getBody()->getContents());
     }
 
-    public function createShipment($order, $country, $warehouse = '')
+    public function createShipment($order, $country, $shipping_method, $warehouse = '')
     {
          switch ($this->systemConfigService->get('CoolRunnerPlugin.config.warehouse')) {
              case 'internal':
-                 return $this->createV3($order, $country);
+                 return $this->createV3($order, $shipping_method, $country);
                  break;
              case 'external':
-                 return $this->createWMS($order, $warehouse, $country);
+                 return $this->createWMS($order, $warehouse, $shipping_method, $country);
                  break;
             default:
                 return false;
@@ -76,16 +77,16 @@ class CoolRunnerAPI
         };
     }
 
-    private function createV3(OrderEntity $order, $country = null)
+    private function createV3(OrderEntity $order, $shipping_method, $country = null)
     {
         $customerAddress = $order->getAddresses()->first();
         $customerInformation = $order->getOrderCustomer();
         $orderLines = $order->getLineItems();
 
-        // Get CoolRunner CPS
         $delivery = $order->getDeliveries()->first();
-        $cps = $delivery->getShippingMethod()->getCustomFields()['coolrunner_cps'];
-        $cps_exploded = explode('_', $cps);
+
+        // Get CoolRunner CPS
+        $cps_exploded = explode('_', $shipping_method->cps);
         $carrier = $cps_exploded[0];
         $carrier_product = $cps_exploded[1];
         $carrier_service = $cps_exploded[2];
@@ -154,16 +155,16 @@ class CoolRunnerAPI
         return ['body' => json_decode($response->getBody()), 'delivery_id' => $delivery->getId()];
     }
 
-    private function createWMS(OrderEntity $order, $warehouse, $country = null)
+    private function createWMS(OrderEntity $order, $warehouse, $shipping_method, $country = null)
     {
         $customerAddress = $order->getAddresses()->first();
         $customerInformation = $order->getOrderCustomer();
         $orderLines = $order->getLineItems();
 
-        // Get CoolRunner CPS
         $delivery = $order->getDeliveries()->first();
-        $cps = $delivery->getShippingMethod()->getCustomFields()['coolrunner_cps'];
-        $cps_exploded = explode('_', $cps);
+
+        // Get CoolRunner CPS
+        $cps_exploded = explode('_', $shipping_method->cps);
         $carrier = $cps_exploded[0];
         $carrier_product = $cps_exploded[1];
         $carrier_service = $cps_exploded[2];
